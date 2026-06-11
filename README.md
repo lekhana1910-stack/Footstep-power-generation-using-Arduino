@@ -32,7 +32,6 @@ This project highlights how wasted **kinetic energy** from daily human movement 
 
 - Real-time voltage and power monitoring via Arduino
 - LCD display showing live energy output
-- LED indicator that glows when sufficient voltage is generated
 - Low-cost, easily replicable hardware setup
 - Scalable design for multiple piezoelectric tiles
 
@@ -52,20 +51,16 @@ Capacitor (smooths and filters voltage)
 Arduino Uno (reads voltage via analog pin A0)
       ↓
 LCD Display (shows voltage & power output)
-      ↓
-LED Indicator (glows above threshold voltage)
+
 ```
 
 1. **Piezoelectric Effect** — When mechanical pressure is applied to the piezo disc, it deforms and generates a small alternating voltage (typically 2V–10V per step).
 2. **Rectification** — A bridge rectifier (4 diodes) converts the AC output to DC.
 3. **Smoothing** — A capacitor filters out ripple and stabilizes the DC voltage.
-4. **ADC Reading** — Arduino reads the analog voltage from pin A0 (0–1023 values mapped to 0–5V).
-5. **Calculation** — Voltage and estimated power are calculated using the formula:
+4. **Steps and voltage Reading** — Arduino reads the steps and voltage from pin A0 (0–1023 values mapped to 0–5V).
+
    ```
-   Voltage (V) = analogRead(A0) × (5.0 / 1023.0)
-   Power (W)   = V² / R   (where R = load resistance in ohms)
-   ```
-6. **Display** — Results are shown on the 16x2 LCD in real time.
+6. **Display** — Results are shown on the I2C 16x2 LCD in real time.
 
 ---
 
@@ -77,8 +72,6 @@ LED Indicator (glows above threshold voltage)
                                                    [LED Indicator]
 ```
 
-> See `circuit/block_diagram.png` for the visual block diagram.
-
 ---
 
 ## Components Required
@@ -89,7 +82,7 @@ LED Indicator (glows above threshold voltage)
 | Piezoelectric Disc | 27mm diameter | 4–6 |
 | Bridge Rectifier | IN4007 diodes | 4 |
 | Capacitor | 1000µF / 25V | 1 |
-| 16x2 LCD Display | HD44780 compatible | 1 |
+| I2c 16x2 LCD Display | HD44780 compatible | 1 |
 | Potentiometer | 10kΩ (for LCD contrast) | 1 |
 | LED | 5mm, Red or Green | 1 |
 | Resistor | 220Ω (for LED) | 1 |
@@ -129,50 +122,45 @@ LED Indicator (glows above threshold voltage)
 The full source code is available in the `src/` folder: [`src/footstep_power.ino`](src/footstep_power.ino)
 
 ```cpp
-#include <LiquidCrystal.h>
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
 
-// LCD pin configuration
-LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
+// Change 0x27 to 0x3F if your LCD address is different
+LiquidCrystal_I2C lcd(0x27, 16, 2);
 
-const int piezoPin = A0;     // Analog input from piezo circuit
-const int ledPin = 8;        // LED indicator pin
-const float R_load = 100.0;  // Load resistance in ohms
+const int sensorPin = A0;
 
 void setup() {
-  lcd.begin(16, 2);
-  pinMode(ledPin, OUTPUT);
-  lcd.print("Footstep Power");
+  // Initialize LCD
+  lcd.init();          // or lcd.begin(16, 2) with some libraries
+  lcd.backlight();
+
+  // Optional startup message
+  lcd.setCursor(0, 0);
+  lcd.print("FOOT STEP GENERATION");
   lcd.setCursor(0, 1);
-  lcd.print("  Generation  ");
-  delay(2000);
-  lcd.clear();
+  lcd.print("Initializing...");
+  delay(1500);
 }
 
 void loop() {
-  int rawValue = analogRead(piezoPin);
-  float voltage = rawValue * (5.0 / 1023.0);
-  float power = (voltage * voltage) / R_load;
+  // Read raw sensor value (0–1023)
+  int FOOTSTEP = analogRead(sensorPin);          // Nano analogRead uses A0–A5. [web:17][web:67]
 
-  // Display voltage
+  // Convert to voltage (optional, for nicer display)
+  float voltage = FOOTSTEP * (5.0 / 1023.0);     // 0–5 V mapping. [web:65]
+
+  // Clear and print
+  lcd.clear();
   lcd.setCursor(0, 0);
-  lcd.print("Volt: ");
-  lcd.print(voltage, 2);
-  lcd.print(" V  ");
+  lcd.print("FOOTSTEP : ");
+  lcd.print(FOOTSTEP);
 
-  // Display power
   lcd.setCursor(0, 1);
-  lcd.print("Power:");
-  lcd.print(power * 1000, 1);
-  lcd.print(" mW ");
+  lcd.print("V: ");
+  lcd.print(voltage, 2);   // 2 decimal places
 
-  // LED glows if voltage exceeds threshold
-  if (voltage > 1.5) {
-    digitalWrite(ledPin, HIGH);
-  } else {
-    digitalWrite(ledPin, LOW);
-  }
-
-  delay(500);
+  delay(200);              // Update ~5 times per second
 }
 ```
 
@@ -188,22 +176,11 @@ void loop() {
 
 ## Output & Results
 
-### Observed Readings
-
-| Number of Steps | Voltage Generated | Power Output |
-|---|---|---|
-| 1 step | 1.2V – 2.5V | 14 mW – 62 mW |
-| 5 steps | 2.0V – 3.5V | 40 mW – 122 mW |
-| 10 steps | 2.8V – 4.2V | 78 mW – 176 mW |
-| 20 steps | 3.5V – 4.8V | 122 mW – 230 mW |
-
-> Results may vary based on piezo disc quality, tile pressure, and load resistance.
-
 ### LCD Output Example
 
 ```
-Volt: 3.42 V
-Power: 116.9 mW
+FOOTSTEP: -
+V: 3.42V
 ```
 
 ---
@@ -222,11 +199,8 @@ Power: 116.9 mW
 ## Future Improvements
 
 - Add a **battery storage module** to store harvested energy
-- Integrate **IoT (ESP8266/ESP32)** to monitor output on a mobile app
 - Use **multiple piezo tiles** in an array for higher power output
-- Add an **OLED display** for better readability
-- Implement **MPPT (Maximum Power Point Tracking)** for efficiency
-- Design a **custom PCB** to replace the breadboard for durability
+- Add an **LCD display** for better readability
 
 ---
 
@@ -237,16 +211,8 @@ The full project report including abstract, literature review, methodology, and 
 
 ---
 
-## Team Members
-
-| Name | Role |
-|---|---|
-| [Your Name] | Hardware & Circuit Design |
-| [Team Member 2] | Arduino Programming |
-| [Team Member 3] | Documentation & Testing |
-
-**Institution:** [Your College Name]
-**Department:** [Electronics / ECE / EEE]
+**Institution:** East West Institute of Technologu
+**Department:** [ECE]
 **Academic Year:** 2024–2025
 
 ---
@@ -261,7 +227,6 @@ This project is licensed under the **MIT License** — see the [LICENSE](LICENSE
 
 - [Arduino Official Documentation](https://www.arduino.cc/reference/en/)
 - [Piezoelectric Energy Harvesting — Research Reference]
-- Our project guide **[Mentor Name]** for valuable support and guidance
 
 ---
 
