@@ -211,7 +211,7 @@ The full project report including abstract, literature review, methodology, and 
 
 ---
 
-**Institution:** East West Institute of Technologu
+**Institution:** East West Institute of Technology
 **Department:** [ECE]
 **Academic Year:** 2024–2025
 
