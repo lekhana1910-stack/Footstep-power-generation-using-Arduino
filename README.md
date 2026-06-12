@@ -69,7 +69,7 @@ LCD Display (shows voltage & power output)
 ```
 [Piezo Disc] → [Bridge Rectifier] → [Capacitor] → [Arduino Uno] → [LCD Display]
                                                          ↓
-                                                   [LED Indicator]
+                                                   [LED Indicator(if needed)]
 ```
 
 ---
